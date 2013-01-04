@@ -1,0 +1,66 @@
+#!/usr/bin/env ruby
+#
+# Upload a directory full of images to a dataset's photo column
+#
+
+require 'soda/client'
+require 'trollop'
+require 'highline/import'
+
+require File.join(File.dirname(__FILE__), '../lib/common.rb')
+
+# Options
+opts = Trollop::options do
+  opt :domain,        "Site domain",                                   :type => :string
+  opt :uid,           "UID of the dataset to load into",               :type => :string
+  opt :username,      "Socrata username/email",                        :type => :string
+  opt :password,      "Socrata password",                              :type => :string
+  opt :app_token,     "App token to override the default",             :type => :string, :default => APP_TOKEN
+  opt :id_column,     "Field name of column that contains unique IDs", :type => :string
+  opt :image_column,  "Field name of column to upload images into",    :type => :string
+  opt :directory,     "Directory that contains all the images",        :type => :string
+end
+
+# If they didn't pass a username or password, ask for it
+if opts[:username].nil?
+  opts[:username] = ask("Username: ") { |q| q.echo = true }
+end
+if opts[:password].nil?
+  opts[:password] = ask("Password: ") { |q| q.echo = "*" }
+end
+
+# Set up our client
+client = SODA::Client.new(opts)
+
+# For each file in the directory we've been given
+updates = []
+Dir.foreach(opts[:directory]) do |file|
+  next if file =~ /^\./
+
+  id = file.gsub(/\.\w+/, '')
+
+  # Upload the file
+  image_guid = nil
+  begin
+    puts "Uploading #{file}..."
+    image_guid = client.upload_file("/views/#{opts[:uid]}/files", File.join(opts[:directory], file)).file
+  rescue Exception => e
+    puts "Error uploading #{file}, skipping."
+    $stderr.puts "Exception: #{e.inspect}"
+    next
+  end
+
+  # Update the row
+  begin
+    update = {
+      opts[:id_column] => id,
+      opts[:image_column] => image_guid
+    }
+    puts "Updating #{id}..."
+    result = client.post("#{opts[:uid]}/#{id}", update)
+  rescue Exception => e
+    puts "Error retrieving record for #{id}, skipping."
+    $stderr.puts "Exception: #{e.inspect}"
+    next
+  end
+end

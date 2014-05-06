@@ -2,10 +2,10 @@ GEM
   remote: http://rubygems.org/
   specs:
     curb (0.8.3)
-    hashie (1.2.0)
+    hashie (2.0.5)
     highline (1.6.15)
     progressbar (0.11.0)
-    soda-ruby (0.2.1)
+    soda-ruby (0.2.2)
       hashie
     trollop (2.0)
 
@@ -16,5 +16,5 @@ DEPENDENCIES
   curb
   highline
   progressbar
-  soda-ruby
+  soda-ruby (= 0.2.2)
   trollop

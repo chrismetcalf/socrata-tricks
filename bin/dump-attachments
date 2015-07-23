@@ -1,0 +1,68 @@
+#!/usr/bin/env ruby
+
+require 'docopt'
+require 'soda/client'
+
+doc = <<DOCOPT
+Dump out all of the attachments for a given domain's datasets
+
+Usage:
+  #{__FILE__} --help | --version
+  #{__FILE__} [options] <domain>
+
+Options:
+  -v, --verbose                   Be loud and proud
+  -t, --app-token                 Socrata App Token [default: 'Ik3u4zlg7leEKNkLJDaSs7rsY']
+  --help                          Show this message
+  --version                       Print the version
+DOCOPT
+
+begin
+  args = Docopt::docopt(doc, version: '0.1')
+  client = SODA::Client.new(domain: args['<domain>'])
+
+  page = 1
+
+  puts [
+    "ID",
+    "URL",
+    "Name",
+    "Attachment Filename",
+    "Attachment URL"
+  ].join("\t")
+
+  loop do
+    resp = client.get("/api/search/views.json", limit: 50, limitTo: "TABLES", page: page)
+    break if resp.results.count <= 0
+
+    resp.results.each do |ds|
+      ds = ds.view
+
+      if ds.metadata.attachments && ds.metadata.attachments.count > 0
+        ds.metadata.attachments.each do |att|
+          puts [
+            ds.id,
+            "https://#{args['<domain>']}/d/#{ds.id}",
+            ds.name,
+            att.filename,
+            "https://#{args['<domain>']}/api/views/#{ds.id}/files/#{att.assetId}?download=true&filename=#{att.filename}"
+          ].join("\t")
+        end
+      else
+        puts [
+          ds.id,
+          "https://#{args['<domain>']}/d/#{ds.id}",
+          ds.name,
+          nil,
+          nil
+        ].join("\t")
+      end
+
+    end
+    page += 1
+  end
+rescue Docopt::Exit => e
+  $stderr.puts e.message
+  exit 1
+end
+
